@@ -1,11 +1,13 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const User = require('../models/User');
+const Student=require('../models/student')
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 var jwt = require('jsonwebtoken');
 var fetchuser=require('../middlewares/authMiddleware');
 const JWT_SECRET = 'Punitisagoo$b$oy';
+const { registerStudent } = require('../middlewares/authStudent');
 
 router.post('/signup',[ 
   body('name','Enter a valid name').isLength({ min: 3 }),
@@ -111,5 +113,52 @@ router.post('/login', [
     }
   
   })
+
+  router.post('/register', registerStudent);
+
+  router.get('/check-registration/:email', async (req, res) => {
+    const { email } = req.params;
+  
+    try {
+      // Check if the user with the provided email exists
+      const user = await Student.findOne({ email });
+  
+      // If the user exists, they are registered; otherwise, they are not registered
+      const isRegistered = !!user;
+  
+      res.json({ isRegistered });
+    } catch (error) {
+      console.error('Error checking registration status:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+
+  router.post('/studentlogin', async (req, res) => {
+    const { email, password } = req.body;
+  
+    try {
+      // Check if the student exists
+      const student = await Student.findOne({ email });
+      if (!student) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+  
+      // Check if the password is correct
+      if (password !== student.password) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+  
+      // Generate a JWT token
+      const token = jwt.sign({ id: student._id, email: student.email }, JWT_SECRET, {
+        expiresIn: '1h',
+      });
+  
+      res.json({ token });
+    } catch (error) {
+      console.error('Error logging in:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
 
 module.exports = router;

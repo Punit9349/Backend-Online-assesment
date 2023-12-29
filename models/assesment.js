@@ -47,6 +47,7 @@ const assessmentSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  allowedEmails: [{ type: String }],
 });
 
 const Assessment = mongoose.model('Assessment', assessmentSchema);

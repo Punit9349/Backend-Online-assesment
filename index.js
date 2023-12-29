@@ -1,10 +1,8 @@
-// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 var cors= require('cors')
 const bodyParser = require('body-parser');
-// const assessmentRoutes = require('./routes/assessmentRoutes');
 const authenticateUser = require('./middlewares/authMiddleware');
 
 const app = express();
@@ -29,7 +27,6 @@ app.use(bodyParser.json());
 
 // Available routes
 app.use('/api/auth', require('./routes/auth'))
-// app.use(authenticateUser);
 app.use('/api/assesment', require('./routes/assesment'));
 
 app.listen(port, () => {
