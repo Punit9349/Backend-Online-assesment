@@ -44,12 +44,94 @@ router.get('/assessments/:id/:email', fetchstudent, async (req, res) => {
       return res.status(404).json({ error: 'Assessment not found' });
     }
 
-    res.json(assessment);
+    const submission= await AssessmentSubmission.find({assessment: req.params.id});
+  
+    res.json({submission,assessment});
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+router.put('/assessments/:id/:email', fetchstudent, async (req, res) => {
+  try {
+    const { answers, timer } = req.body;
+    const assessmentId = req.params.id;
+    const userEmail = req.params.email;
+
+    // Fetch the assessment
+    const assessment = await Assessment.findById(assessmentId);
+    if (!assessment) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    // Fetch the user
+    const user = await Student.findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if a submission exists
+    // const submission = await AssessmentSubmission.findOne({ assessment: assessmentId, student: user._id });
+    const submission= await AssessmentSubmission.find({assessment: req.params.id});
+        
+
+    if (submission.length>0) {
+      const id1=submission[0]._id.toHexString();
+      submission[0].timeRemaining=timer;
+      submission[0].answers=answers;
+      submission[0]._id=id1;
+      await AssessmentSubmission.findByIdAndUpdate(id1, submission[0]);
+      // res.json({ message: 'Assessment submission updated successfully' });
+    } else {
+    
+    //  console.log("hello");
+      const score = 0;
+      const answers1={
+        "658010818693f9c0df0b0420": -1,
+      }
+      const submission1 = new AssessmentSubmission({
+        assessment: assessmentId,
+        student: user._id,
+        answers:answers1,
+        score,
+        timeRemaining: timer,
+        isSubmit: false,
+      });
+      // console.log(submission1);
+      await submission1.save();
+      res.json({ message: 'Assessment submission updated successfully' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+// router.put('/assessments/:id/:email', fetchstudent, async (req, res) => {
+//   try {
+//     const {answers, timer}=req.body;
+//     const assessment = await Assessment.findById(req.params.id);
+//     if (!assessment) {
+//       return res.status(404).json({ error: 'Assessment not found' });
+//     }
+
+//     const submission= await AssessmentSubmission.find({assessment: req.params.id});
+//     // const usubmission= await AssessmentSubmission.find({assessment: req.params.id});
+//     const id1=submission[0]._id.toHexString();
+//     submission[0].timeRemaining=timer;
+//     submission[0].answers=answers;
+//     submission[0]._id=id1;
+//     // console.log({submission,id1,usubmission});
+//     await AssessmentSubmission.findByIdAndUpdate(id1, submission[0]);
+//     res.json({ message: 'Assessment submission updated successfully' });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: 'Internal Server Error' });
+//   }
+// });
 
 // Get all the assessment that are assigned to a particular student
 router.get('/assessments/:email',  async (req, res) => {
@@ -138,13 +220,33 @@ const calculateScore = (correctAnswers, userAnswers) => {
   return score;
 };
 
+router.get('/hasTakenAssessment/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userEmail = req.query.email;
+
+    const user = await Student.findOne({ email: userEmail });
+    
+    // Fetch all submissions for the user and the assessment
+    const submission = await AssessmentSubmission.find({ student: user._id, assessment: id });
+
+    const hasTakenAssessment = submission !== null;
+
+    res.json({ hasTakenAssessment });
+  } catch (error) {
+    console.error('Error checking previous assessment submission:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+
+});
 
 router.post('/assessments/submit/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const answers = req.body.answers;
+    const timeRemaining=req.body.timer;
     console.log(answers);
-    const userEmail = req.body.email; 
+    const userEmail = req.body.email1; 
 
     // Fetch user ID based on email
     const user = await Student.findOne({ email: userEmail });
@@ -164,13 +266,21 @@ router.post('/assessments/submit/:id', async (req, res) => {
      const score = calculateScore(correctAnswers, answers);
 
     // Save the assessment submission to the database
-    const submission = new AssessmentSubmission({
-      assessment: id,
-      student: user._id,
-      answers,
-      score,
-    });
-    await submission.save();
+    const submission= await AssessmentSubmission.find({assessment: req.params.id});
+    const id1=submission[0]._id.toHexString();
+      submission[0].isSubmit=true;
+      submission[0].score=score;
+      submission[0].timeRemaining=timeRemaining;
+      submission[0].answers=answers;
+      // submission[0]._id=id1;
+      await AssessmentSubmission.findByIdAndUpdate(id1, submission[0]);
+    // const submission = new AssessmentSubmission({
+    //   assessment: id,
+    //   student: user._id,
+    //   answers,
+    //   score,
+    // });
+    // await submission.save();
 
     res.json({ message: 'Assessment submitted successfully', score });
   } catch (error) {
@@ -221,42 +331,5 @@ router.get('/evaluate/:id', async (req, res) => {
   }
 });
 
-
-
-// Route to evaluate assessment
-// router.get('/assessments/evaluate/:id', async (req, res) => {
-//   try {
-//     const assessmentId = req.params.id;
-
-//     // Fetch the assessment by ID
-//     const assessment = await Assessment.findById(assessmentId);
-
-//     // Evaluate the assessment (customize this based on your evaluation logic)
-//     const totalQuestions = assessment.questions.length;
-//     const correctAnswers = assessment.submissions.reduce((total, submission) => {
-//       return (
-//         total +
-//         assessment.questions.reduce((acc, question, index) => {
-//           return submission.answers[index] === question.correctAnswer ? acc + 1 : acc;
-//         }, 0)
-//       );
-//     }, 0);
-
-//     // Calculate the score based on your criteria
-//     const score = (correctAnswers / (totalQuestions * assessment.submissions.length)) * 100;
-
-//     // You can customize the response structure based on your needs
-//     const results = {
-//       totalQuestions,
-//       correctAnswers,
-//       score,
-//     };
-
-//     res.json(results);
-//   } catch (error) {
-//     console.error('Error evaluating assessment:', error);
-//     res.status(500).json({ error: 'Internal Server Error' });
-//   }
-// });
 
 module.exports = router;

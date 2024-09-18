@@ -14,11 +14,19 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   },
   answers: {
     type: Object, // You can adjust this based on your answer structure
-    required: true,
+    // required: true,
   },
   score: {
     type: Number,
     required: true,
+  },
+  timeRemaining: {
+    type: Number, // Store time remaining in seconds
+    default: 0,
+  },
+  isSubmit:{
+    type: Boolean,
+    default: false,
   },
   submittedAt: {
     type: Date,
